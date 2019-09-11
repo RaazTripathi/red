@@ -3,18 +3,19 @@ REBOL [
 	Author:  "Nenad Rakocevic"
 	File: 	 %config.r
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
-	License: "BSD-3 - https://github.com/dockimbel/Red/blob/master/BSD-3-License.txt"
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
+	License: "BSD-3 - https://github.com/red/red/blob/master/BSD-3-License.txt"
 ]
 
 ;;-------------------------------------------
 ;;     Compilation Target Options
 ;;-------------------------------------------
-;;	OS:				'Windows | 'Linux | 'MacOSX | 'Syllable	;-- operating system name
+;;	OS:				'Windows | 'Linux | 'macOS | 'Syllable	;-- operating system name
 ;;	format:			'PE  | 'ELF | 'Mach-o		;-- file format
 ;;	type:			'exe | 'dll | 'drv			;-- file type
 ;;	target:			'IA-32 | 'ARM				;-- CPU or VM target
 ;;  cpu-version:	<decimal!>					;-- CPU version (default for IA-32: 6.0, Pentium Pro, for ARM: 5.0)
+;;  ABI:			none | word! | block!		;-- optional ABI flags
 ;;	sub-system:		'GUI | 'console				;-- type of user interface
 ;;	PIC?:			 yes | no					;-- generate Position Independent Code
 ;;	base-address:	<integer!>					;-- base image memory address
@@ -23,9 +24,17 @@ REBOL [
 ;;  syscall:		'Linux | 'BSD				;-- syscalls calling convention (default to Linux)
 ;;  stack-align-16?: yes | no					;-- yes => align stack to 16 bytes (default: no)
 ;;  literal-pool?:	 yes | no					;-- yes => use pools to store literals, no => store them inlined (default: no)
+;;	debug?:			 yes | no					;-- yes => emit debug information into binary
+;;	debug-safe?:	 yes | no					;-- yes => try to avoid over-crashing on runtime debug reports
+;;	dev-mode?:		 yes | no					;-- yes => turn on developer mode (pre-build runtime, default), no => build a single binary
 ;;  red-store-bodies?:	 yes | no				;-- no => do not store function! value bodies (default: yes)
 ;;	red-strict-check?: yes						;-- no => defers undefined word errors reporting at run-time
-;;  red-tracing?:	 yes						;-- no => do not compile tracing code
+;;  red-tracing?:	yes							;-- no => do not compile tracing code
+;;  red-help?:		no							;-- yes => keep doc-strings from boot.red
+;;	gui-console?:	no							;-- yes => redirect printing to gui console (temporary)
+;;	GUI-engine:		'native						;-- native | test | GTK | ...
+;;  legacy:			block! of words				;-- flags for OS legacy features support
+;;		- stat32								;-- use the older stat struct for 32-bit file access.
 ;;-------------------------------------------
 
 ;-------------------------
@@ -41,6 +50,28 @@ Windows [
 	format: 	'PE
 	type:		'exe
 	sub-system: 'GUI
+]
+WindowsXP [
+	OS:			'Windows
+	format: 	'PE
+	type:		'exe
+	sub-system: 'GUI
+	legacy:		[no-touch]
+]
+MSDOS-Old [								; pre-Pentium 4 target
+	OS:			'Windows
+	format: 	'PE
+	type:		'exe
+	sub-system: 'console
+	cpu-version: 1.0
+]
+;-------------------------
+Windows-Old [							; pre-Pentium 4 target
+	OS:			'Windows
+	format: 	'PE
+	type:		'exe
+	sub-system: 'GUI
+	cpu-version: 1.0
 ]
 ;-------------------------
 WinDLL [
@@ -64,6 +95,13 @@ Linux [									; Linux default target
 	format: 	'ELF
 	type:		'exe
 	dynamic-linker: "/lib/ld-linux.so.2"
+]
+Linux-Old [
+	OS:			'Linux
+	format: 	'ELF
+	type:		'exe
+	dynamic-linker: "/lib/ld-linux.so.2"
+	legacy:		[stat32]
 ]
 ;-------------------------
 ;LinSO [								; not supported yet
@@ -98,9 +136,22 @@ Linux-ARM [
 	OS:			'Linux
 	format:		'ELF
 	target:		'ARM
+	ABI:		'soft-float
 	type:		'exe
+	cpu-version: 5.0
 	base-address: 32768					; 8000h
 	dynamic-linker: "/lib/ld-linux.so.3"
+]
+;-------------------------
+RPi [
+	OS:			'Linux
+	format:		'ELF
+	target:		'ARM
+	ABI:		'hard-float
+	type:		'exe
+	cpu-version: 7.0
+	base-address: 32768					; 8000h
+	dynamic-linker: "/lib/ld-linux-armhf.so.3"
 ]
 ;-------------------------
 Syllable [
@@ -110,8 +161,17 @@ Syllable [
 	base-address: -2147483648			; 80000000h
 ]
 ;-------------------------
+FreeBSD [
+	OS:			'FreeBSD
+	format: 	'ELF
+	type:		'exe
+	dynamic-linker: "/usr/libexec/ld-elf.so.1"
+	syscall: 'BSD
+	target: 'IA-32
+]
+;-------------------------
 Darwin [
-	OS:			'MacOSX
+	OS:			'macOS
 	format: 	'Mach-O
 	type:		'exe
 	sub-system: 'console
@@ -119,7 +179,7 @@ Darwin [
 	stack-align-16?: yes
 ]
 DarwinSO [
-	OS:			'MacOSX
+	OS:			'macOS
 	format: 	'Mach-O
 	type:		'dll
 	sub-system: 'console
@@ -128,10 +188,14 @@ DarwinSO [
 	PIC?:		yes
 ]
 ;-------------------------
-;OSX [									; not supported yet
-;	OS:			'MacOSX
-;	format: 	'Mach-o
-;	type:		'exe
-;	sub-system: 'GUI
-;]
+macOS [
+	OS:			'macOS
+	format: 	'Mach-O
+	type:		'exe
+	sub-system: 'GUI
+	syscall:	'BSD
+	stack-align-16?: yes
+	packager:	'Mach-APP
+	dev-mode?:	no
+]
 ;-------------------------

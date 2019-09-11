@@ -3,55 +3,67 @@ Red/System [
 	Author:  "Nenad Rakocevic"
 	File: 	 %macros.reds
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
 	License: {
 		Distributed under the Boost Software License, Version 1.0.
-		See https://github.com/dockimbel/Red/blob/master/BSL-License.txt
+		See https://github.com/red/red/blob/master/BSL-License.txt
 	}
 ]
 
-#enum datatypes! [
-	TYPE_VALUE
-	TYPE_DATATYPE
-	TYPE_UNSET
-	TYPE_NONE
-	TYPE_LOGIC
-	TYPE_BLOCK
-	TYPE_STRING
-	TYPE_INTEGER
-	TYPE_SYMBOL
-	TYPE_CONTEXT
-	TYPE_WORD
-	TYPE_SET_WORD
-	TYPE_LIT_WORD
-	TYPE_GET_WORD
-	TYPE_REFINEMENT
-	TYPE_CHAR
-	TYPE_NATIVE
-	TYPE_ACTION
-	TYPE_OP
-	TYPE_FUNCTION
-	TYPE_PATH
-	TYPE_LIT_PATH
-	TYPE_SET_PATH
-	TYPE_GET_PATH
-	TYPE_PAREN
-	TYPE_ROUTINE
-	TYPE_ISSUE
-	TYPE_FILE
-	TYPE_BITSET
-	TYPE_POINT
-	TYPE_OBJECT
-	TYPE_BINARY
-	
-	TYPE_TYPESET
-	TYPE_ERROR
-
+#enum datatypes! [										;-- Order must not be changed!
+	TYPE_VALUE											;-- 00		00
+	TYPE_DATATYPE										;-- 01		01
+	TYPE_UNSET											;-- 02		02
+	TYPE_NONE											;-- 03		03
+	TYPE_LOGIC											;-- 04		04
+	TYPE_BLOCK											;-- 05		05
+	TYPE_PAREN											;-- 06		06
+	TYPE_STRING											;-- 07		07
+	TYPE_FILE											;-- 08		08
+	TYPE_URL											;-- 09		09
+	TYPE_CHAR											;-- 0A		10
+	TYPE_INTEGER										;-- 0B		11
+	TYPE_FLOAT											;-- 0C		12
+	TYPE_SYMBOL											;-- 0D		13
+	TYPE_CONTEXT										;-- 0E		14
+	TYPE_WORD											;-- 0F		15
+	TYPE_SET_WORD										;-- 10		16
+	TYPE_LIT_WORD										;-- 11		17
+	TYPE_GET_WORD										;-- 12		18
+	TYPE_REFINEMENT										;-- 13		19
+	TYPE_ISSUE											;-- 14		20
+	TYPE_NATIVE											;-- 15		21
+	TYPE_ACTION											;-- 16		22
+	TYPE_OP												;-- 17		23
+	TYPE_FUNCTION										;-- 18		24
+	TYPE_PATH											;-- 19		25
+	TYPE_LIT_PATH										;-- 1A		26
+	TYPE_SET_PATH										;-- 1B		27
+	TYPE_GET_PATH										;-- 1C		28
+	TYPE_ROUTINE										;-- 1D		29
+	TYPE_BITSET											;-- 1E		30
+	TYPE_POINT											;-- 1F		31
+	TYPE_OBJECT											;-- 20		32
+	TYPE_TYPESET										;-- 21		33
+	TYPE_ERROR											;-- 22		34
+	TYPE_VECTOR											;-- 23		35
+	TYPE_HASH											;-- 24		36
+	TYPE_PAIR											;-- 25		37
+	TYPE_PERCENT										;-- 26		38
+	TYPE_TUPLE											;-- 27		39
+	TYPE_MAP											;-- 28		40
+	TYPE_BINARY											;-- 29		41
+	TYPE_SERIES											;-- 2A		42
+	TYPE_TIME											;-- 2B		43
+	TYPE_TAG											;-- 2C		44
+	TYPE_EMAIL											;-- 2D		45
+	TYPE_HANDLE											;-- 2E		46
+	TYPE_DATE											;-- 2F		47
+	TYPE_PORT											;-- 30		48
+	TYPE_IMAGE											;-- 31		49		;-- needs to be last
+	TYPE_EVENT											
 	TYPE_CLOSURE
-
-	TYPE_PORT
-
-	TYPE_FLOAT
+	TYPE_TOTAL_COUNT									;-- keep tabs on number of datatypes.
 ]
 
 #enum actions! [
@@ -87,7 +99,7 @@ Red/System [
 	ACT_OR~
 	ACT_XOR~
 	
-	;-- Series actions --
+	;-- Series actions --								;-- Port! actions start here
 	ACT_APPEND
 	ACT_AT
 	ACT_BACK
@@ -100,9 +112,11 @@ Red/System [
 	ACT_INDEX?
 	ACT_INSERT
 	ACT_LENGTH?
+	ACT_MOVE
 	ACT_NEXT
 	ACT_PICK
 	ACT_POKE
+	ACT_PUT
 	ACT_REMOVE
 	ACT_REVERSE
 	ACT_SELECT
@@ -140,8 +154,10 @@ Red/System [
 	NAT_UNTIL
 	NAT_LOOP
 	NAT_REPEAT
+	NAT_FOREVER
 	NAT_FOREACH
 	NAT_FORALL
+	NAT_REMOVE_EACH
 	NAT_FUNC
 	NAT_FUNCTION
 	NAT_DOES
@@ -162,9 +178,7 @@ Red/System [
 	NAT_GREATER_OR_EQUAL?
 	NAT_SAME?
 	NAT_NOT
-	NAT_HALT
 	NAT_TYPE?
-	NAT_LOAD
 	NAT_REDUCE
 	NAT_COMPOSE
 	NAT_STATS
@@ -175,6 +189,62 @@ Red/System [
 	NAT_INTERSECT
 	NAT_UNIQUE
 	NAT_DIFFERENCE
+	NAT_EXCLUDE
+	NAT_COMPLEMENT?
+	NAT_DEHEX
+	NAT_NEGATIVE?
+	NAT_POSITIVE?
+	NAT_MAX
+	NAT_MIN
+	NAT_SHIFT
+	NAT_TO_HEX
+	NAT_SINE
+	NAT_COSINE
+	NAT_TANGENT
+	NAT_ARCSINE
+	NAT_ARCCOSINE
+	NAT_ARCTANGENT
+	NAT_ARCTANGENT2
+	NAT_NAN?
+	NAT_LOG_2
+	NAT_LOG_10
+	NAT_LOG_E
+	NAT_EXP
+	NAT_SQUARE_ROOT
+	NAT_CONSTRUCT
+	NAT_VALUE?
+	NAT_TRY
+	NAT_UPPERCASE
+	NAT_LOWERCASE
+	NAT_AS_PAIR
+	NAT_BREAK
+	NAT_CONTINUE
+	NAT_EXIT
+	NAT_RETURN
+	NAT_THROW
+	NAT_CATCH
+	NAT_EXTEND
+	NAT_DEBASE
+	NAT_TO_LOCAL_FILE
+	NAT_WAIT
+	NAT_CHECKSUM
+	NAT_UNSET
+	NAT_NEW_LINE
+	NAT_NEW_LINE?
+	NAT_ENBASE
+	NAT_CONTEXT?
+	NAT_SET_ENV
+	NAT_GET_ENV
+	NAT_LIST_ENV
+	NAT_NOW
+	NAT_SIGN?
+	NAT_AS
+	NAT_CALL
+	NAT_ZERO?
+	NAT_SIZE?
+	NAT_BROWSE
+	NAT_DECOMPRESS
+	NAT_RECYCLE
 ]
 
 #enum math-op! [
@@ -182,6 +252,17 @@ Red/System [
 	OP_SUB
 	OP_MUL
 	OP_DIV
+	OP_REM
+	;-- bitwise op!
+	OP_OR
+	OP_AND
+	OP_XOR
+	;-- set op!
+	OP_UNIQUE
+	OP_UNION
+	OP_INTERSECT
+	OP_EXCLUDE
+	OP_DIFFERENCE
 ]
 
 #enum comparison-op! [
@@ -192,25 +273,49 @@ Red/System [
 	COMP_LESSER_EQUAL
 	COMP_GREATER
 	COMP_GREATER_EQUAL
+	COMP_SORT
+	COMP_CASE_SORT
+	COMP_SAME
+	COMP_STRICT_EQUAL_WORD							;-- same as STRICT_EQUAL, but relaxed type matching for words
+	COMP_FIND
 ]
 
 #enum exceptions! [
-	NO_EXCEPTION
-	THROWN_EXIT
-	THROWN_RETURN
+	RED_NO_EXCEPTION
+	OS_ERROR_VMEM:					2147483637
+	OS_ERROR_VMEM_RELEASE_FAILED:	2147483638
+	OS_ERROR_VMEM_OUT_OF_MEMORY:	2147483639
+	OS_ERROR_VMEM_ALL:				2147483640
+	RED_INT_OVERFLOW:				2147483641
+	RED_THROWN_THROW:				2147483642
+	RED_THROWN_EXIT:				2147483643
+	RED_THROWN_RETURN:				2147483644
+	RED_THROWN_CONTINUE:			2147483645
+	RED_THROWN_BREAK:				2147483646
+	RED_THROWN_ERROR:				2147483647
 ]
 
-#define NATIVES_NB		100							;-- max number of natives (arbitrary set)
-#define ACTIONS_NB		60							;-- number of actions (exact number)
+#enum object-classes! [
+	OBJ_CLASS_ERROR!:	1
+	OBJ_CLASS_PORT!
+	OBJ_CLASS_FACE!
+]
+
+#define DATATYPES_NB	51							;-- total number of built-in datatypes (including TYPE_VALUE)
+#define NATIVES_NB		110							;-- max number of natives (arbitrary set)
+#define ACTIONS_NB		62							;-- number of actions (exact number)
 #define INHERIT_ACTION	-1							;-- placeholder for letting parent's action pass through
 
-#either debug? = yes [
+#either verbosity >= 1 [
 	#define ------------| 	print-line
 ][
 	#define ------------| 	comment
 ]
 
 #define TYPE_OF(value)		(value/header and get-type-mask)
+#define TUPLE_SIZE?(value)	(value/header >> 19 and 15)
+#define GET_TUPLE_ARRAY(tp) [(as byte-ptr! tp) + 4]
+#define SET_TUPLE_SIZE(t n) [t/header: t/header and FF87FFFFh or (n << 19)]
 #define GET_BUFFER(series)  (as series! series/node/value)
 #define GET_UNIT(series)	(series/flags and get-unit-mask)
 #define ALLOC_TAIL(series)	[alloc-at-tail series]
@@ -223,6 +328,168 @@ Red/System [
 #define GET_CTX(obj)		(as red-context! ((as series! obj/ctx/value) + 1))
 #define FLAG_NOT?(s)		(s/flags and flag-bitset-not <> 0)
 #define SET_RETURN(value)	[stack/set-last as red-value! value]
+#define TO_ERROR(cat id)	[#in system/catalog/errors cat #in system/catalog/errors/cat id]
+
+#define PLATFORM_TO_CSTR(cstr str len) [	;-- len in bytes
+	len: -1
+	#either OS = 'Windows [
+		cstr: unicode/to-utf16-len str :len yes
+		len: len * 2
+	][
+		cstr: unicode/to-utf8 str :len
+	]
+]
+
+#define PLATFORM_LOAD_STR(str cstr len) [
+	#either OS = 'Windows [
+		str: string/load cstr len UTF-16LE
+	][
+		str: string/load cstr len UTF-8
+	]
+]
+
+#define WHITE_CHAR?(char)	[
+	any [
+		all [0 < char char < 33]			;-- All white chars: NL, CR, BS, etc...
+		char = 133							;-- #"^(85)"
+		char = 160							;-- #"^(A0)"
+		char = 5760							;-- #"^(1680)"
+		char = 6158							;-- #"^(180E)"
+		all [8192 <= char char <= 8202]		;-- #"^(2000)" - #"^(200A)"
+		char = 8232							;-- #"^(2028)"
+		char = 8233							;-- #"^(2029)"
+		char = 8239							;-- #"^(202F)"
+		char = 8287							;-- #"^(205F)"
+		char = 12288						;-- #"^(3000)"
+	]
+]
+
+#define SPACE_CHAR?(char)	[
+	any [
+		char = 32							;-- #" "
+		char = 9							;-- #"^-"
+		char = 133							;-- #"^(85)"
+		char = 160							;-- #"^(A0)"
+		char = 5760							;-- #"^(1680)"
+		char = 6158							;-- #"^(180E)"
+		all [8192 <= char char <= 8202]		;-- #"^(2000)" - #"^(200A)"
+		char = 8232							;-- #"^(2028)"
+		char = 8233							;-- #"^(2029)"
+		char = 8239							;-- #"^(202F)"
+		char = 8287							;-- #"^(205F)"
+		char = 12288						;-- #"^(3000)"
+	]
+]
+
+#define ANY_SERIES?(type)	[
+	any [
+		type = TYPE_BLOCK
+		type = TYPE_HASH
+		type = TYPE_VECTOR
+		type = TYPE_PAREN
+		type = TYPE_PATH
+		type = TYPE_LIT_PATH
+		type = TYPE_SET_PATH
+		type = TYPE_GET_PATH
+		type = TYPE_STRING
+		type = TYPE_FILE
+		type = TYPE_URL
+		type = TYPE_BINARY
+		type = TYPE_IMAGE
+		type = TYPE_TAG
+		type = TYPE_EMAIL
+	]
+]
+
+#define ANY_BLOCK_STRICT?(type)	[
+	any [
+		type = TYPE_BLOCK
+		type = TYPE_PAREN
+		type = TYPE_PATH
+		type = TYPE_GET_PATH
+		type = TYPE_SET_PATH
+		type = TYPE_LIT_PATH
+	]
+]
+
+#define ANY_BLOCK?(type)	[
+	any [
+		type = TYPE_BLOCK
+		type = TYPE_PAREN
+		type = TYPE_HASH
+		type = TYPE_PATH
+		type = TYPE_GET_PATH
+		type = TYPE_SET_PATH
+		type = TYPE_LIT_PATH
+	]
+]
+
+#define ANY_LIST(type)	[
+	any [
+		type = TYPE_BLOCK
+		type = TYPE_PAREN
+		type = TYPE_HASH
+	]
+]
+
+#define ANY_PATH?(type)	[
+	any [
+		type = TYPE_PATH
+		type = TYPE_GET_PATH
+		type = TYPE_SET_PATH
+		type = TYPE_LIT_PATH
+	]
+]
+
+#define ANY_STRING?(type)	[
+	any [
+		type = TYPE_STRING
+		type = TYPE_FILE
+		type = TYPE_URL
+		type = TYPE_TAG
+		type = TYPE_EMAIL
+	]
+]
+
+#define ANY_WORD?(type) [
+	any [
+		type = TYPE_WORD
+		type = TYPE_SET_WORD
+		type = TYPE_GET_WORD
+		type = TYPE_LIT_WORD
+	]
+]
+
+#define TYPE_ANY_STRING [					;-- To be used in SWITCH cases
+	TYPE_STRING
+	TYPE_FILE
+	TYPE_URL
+	TYPE_TAG
+	TYPE_EMAIL	
+]
+
+#define TYPE_ANY_BLOCK [					;-- To be used in SWITCH cases
+	TYPE_BLOCK
+	TYPE_PAREN
+	TYPE_HASH
+	TYPE_PATH
+	TYPE_GET_PATH
+	TYPE_SET_PATH
+	TYPE_LIT_PATH
+]
+
+#define TYPE_ANY_LIST [						;-- To be used in SWITCH cases
+	TYPE_BLOCK
+	TYPE_HASH
+	TYPE_PAREN
+]
+
+#define TYPE_ANY_PATH [						;-- To be used in SWITCH cases
+	TYPE_PATH
+	TYPE_GET_PATH
+	TYPE_SET_PATH
+	TYPE_LIT_PATH
+]
 
 #define BS_SET_BIT(array bit)  [
 	pos: array + (bit >> 3)
@@ -237,6 +504,11 @@ Red/System [
 #define BS_TEST_BIT(array bit set?)  [
 	pos: array + (bit >> 3)
 	set?: pos/value and (as-byte 128 >> (bit and 7)) <> null-byte
+]
+
+#define BS_TEST_BIT_ALT(ts bit) [
+	pos: ((as byte-ptr! ts) + 4) + (bit >> 3)
+	pos/value and (as-byte 128 >> (bit and 7)) <> null-byte
 ]
 
 #define BS_PROCESS_SET_VIRTUAL(bs bit) [
@@ -255,26 +527,82 @@ Red/System [
 	]
 ]
 
-
-#define --NOT_IMPLEMENTED--	[
-	print-line "Error: feature not implemented yet!"
-	halt
-]
-
-#define RETURN_COMPARE_OTHER [
-	return switch op [
-
-		COMP_EQUAL
-		COMP_STRICT_EQUAL [false]
-		COMP_NOT_EQUAL 	  [true]
-		default [
-			--NOT_IMPLEMENTED--							;@@ add error handling
-			false
+#define GET_INT_FROM(n spec) [
+	either TYPE_OF(spec) = TYPE_FLOAT [
+		fl: as red-float! spec
+		n: as-integer fl/value
+		#if target = 'IA-32 [
+			if system/fpu/status and FPU_EXCEPTION_INVALID_OP <> 0 [
+				fire [TO_ERROR(internal no-memory)]
+			]
 		]
+	][
+		int: as red-integer! spec
+		n: int/value
 	]
 ]
 
+#define ERR_INVALID_REFINEMENT_ARG(refine arg) [
+	fire [
+		TO_ERROR(script invalid-refine-arg)
+		refine
+		arg
+	]
+]
+
+#define ERR_EXPECT_ARGUMENT(type arg-idx) [
+	fire [
+		TO_ERROR(script expect-arg)
+		stack/get-call
+		datatype/push type
+		error/get-call-argument arg-idx
+	]
+]
+
+#define --NOT_IMPLEMENTED--	[
+	fire [TO_ERROR(internal not-done)]
+]
+
+#define RETURN_COMPARE_OTHER [
+	return -2
+]
+
+#define CHECK_COMPARE_OTHER(type) [
+	if all [
+		TYPE_OF(str2) <> type
+		any [
+			all [
+				op <> COMP_EQUAL
+				op <> COMP_NOT_EQUAL
+			]
+			all [
+				TYPE_OF(str2) <> TYPE_STRING		;@@ use ANY_STRING?
+				TYPE_OF(str2) <> TYPE_FILE
+				TYPE_OF(str2) <> TYPE_URL
+				TYPE_OF(str2) <> TYPE_TAG
+				TYPE_OF(str2) <> TYPE_EMAIL
+			]
+		]
+	][RETURN_COMPARE_OTHER]
+]
+
+#define SIGN_COMPARE_RESULT(a b) [
+	either a < b [-1][either a > b [1][0]]
+]
+
+#define DISPATCH_COMPARE(value) [
+	as function! [									;-- pre-dispatch compare action
+		value1  [red-value!]						;-- first operand
+		value2  [red-value!]						;-- second operand
+		op	    [integer!]							;-- type of comparison
+		return: [integer!]
+	] actions/get-action-ptr value ACT_COMPARE
+]
+
+#define IMAGE_WIDTH(size)  (size and FFFFh) 
+#define IMAGE_HEIGHT(size) (size >> 16)
+
 #if debug? = yes [
-	#define dump4			[dump-hex4 as int-ptr!]
-	#define dump1			[dump-hex  as byte-ptr!]
+	#define dump4	[dump-hex4 as int-ptr!]
+	#define dump1	[dump-hex  as byte-ptr!]
 ]

@@ -3,10 +3,10 @@ Red/System [
 	Author:  "Nenad Rakocevic"
 	File: 	 %darwin.reds
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
 	License: {
 		Distributed under the Boost Software License, Version 1.0.
-		See https://github.com/dockimbel/Red/blob/master/red-system/runtime/BSL-License.txt
+		See https://github.com/red/red/blob/master/red-system/runtime/BSL-License.txt
 	}
 ]
 
@@ -22,8 +22,12 @@ Red/System [
 #define SYSCALL_MMAP		197
 #define SYSCALL_MUNMAP		73
 
+#define gestaltSystemVersion		1937339254			;-- "sysv"
+#define gestaltSystemVersionMajor	1937339185			;-- "sys1"
+#define gestaltSystemVersionMinor	1937339186			;-- "sys2"
+#define gestaltSystemVersionBugFix	1937339187			;-- "sys3"
 
-platform: context [
+platform: context [ 
 
 	#include %POSIX.reds
 
@@ -33,9 +37,13 @@ platform: context [
 				property	[integer!]
 				return:		[integer!]
 			]
+			_NSGetEnviron: "_NSGetEnviron" [
+				return: 	[int-ptr!]
+			]
 		]
 	]
-
+	
+	environ: 0
 	page-size: 0
 
 	#syscall [
@@ -61,9 +69,11 @@ platform: context [
 		size 	[integer!]						;-- allocated size in bytes (page size multiple)
 		exec? 	[logic!]						;-- TRUE => executable region
 		return: [int-ptr!]						;-- allocated memory region pointer
-		/local ptr prot
+		/local
+			ptr  [byte-ptr!]
+			prot [integer!]
 	][
-		assert zero? (size and 0Fh)				;-- size is a multiple of 16
+		assert zero? (size and (page-size - 1))	;-- size is a multiple of page size
 		prot: either exec? [MMAP_PROT_RWX][MMAP_PROT_RW]
 
 		ptr: mmap 
@@ -74,9 +84,7 @@ platform: context [
 			-1									;-- portable value
 			0
 
-		if -1 = as-integer ptr [
-			raise-error RED_ERR_VMEM_OUT_OF_MEMORY as-integer system/pc
-		]
+		if 12 = as-integer ptr [throw OS_ERROR_VMEM_OUT_OF_MEMORY]
 		as int-ptr! ptr
 	]
 
@@ -86,12 +94,14 @@ platform: context [
 	free-virtual: func [
 		ptr [int-ptr!]							;-- address of memory region to release
 	][
-		if negative? munmap as byte-ptr! ptr ptr/value [
-			raise-error RED_ERR_VMEM_RELEASE_FAILED as-integer system/pc
+		if -1 = munmap as byte-ptr! ptr ptr/value [
+			throw OS_ERROR_VMEM_RELEASE_FAILED
 		]
 	]
 	
-	init: does [
+	init: func [/local ptr [int-ptr!]][
+		ptr: _NSGetEnviron
+		environ: ptr/value
 		page-size: sysconf SC_PAGE_SIZE
 		setlocale __LC_ALL ""					;@@ check if "utf8" is present in returned string?
 	]

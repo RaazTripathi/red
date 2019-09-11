@@ -3,11 +3,20 @@ Red/System [
 	Author:  "Nenad Rakocevic"
 	File: 	 %debug-tools.reds
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
 	License: {
 		Distributed under the Boost Software License, Version 1.0.
-		See https://github.com/dockimbel/Red/blob/master/BSL-License.txt
+		See https://github.com/red/red/blob/master/BSL-License.txt
 	}
+]
+
+print-symbol: func [
+	word [red-word!]
+	/local
+		sym [red-symbol!]
+][
+	sym: symbol/get word/symbol
+	print as-c-string (as series! sym/cache/value) + 1
 ]
 
 ;-------------------------------------------
@@ -16,51 +25,70 @@ Red/System [
 memory-info: func [
 	blk		[red-block!]
 	verbose [integer!]						;-- stat verbosity level (1, 2 or 3)
+	return:	[integer!]						;-- total bytes used (verbose = 1)
 	/local
-		n-frame s-frame b-frame free-nodes base list nodes series bigs
+		n-frame s-frame b-frame free-nodes base list nodes series bigs used cell saved
 ][
+	saved: collector/active?
+	collector/active?: no
 	assert all [1 <= verbose verbose <= 3]
+	used: 0
 
 ;-- Node frames stats --
-	nodes: block/make-in blk 8
+	if verbose > 1 [nodes: block/make-in blk 8]
 	n-frame: memory/n-head
 
 	while [n-frame <> null][
+		free-nodes: (as-integer (n-frame/top + 1 - n-frame/bottom)) / 4
+		if verbose = 1 [
+			used: used + ((n-frame/nodes - free-nodes) * 4)
+		]
 		if verbose >= 2 [
-			free-nodes: (as-integer (n-frame/top - n-frame/bottom) + 1) / 4
 			list: block/make-in nodes 8
-			integer/load-in list n-frame/nodes - free-nodes
-			integer/load-in list free-nodes
-			integer/load-in list n-frame/nodes
+			integer/make-in list free-nodes
+			integer/make-in list n-frame/nodes - free-nodes
+			integer/make-in list n-frame/nodes
+			list/header: list/header or flag-new-line
 		]
 		n-frame: n-frame/next
 	]
 
 ;-- Series frames stats --
-	series: block/make-in blk 8
+	if verbose > 1 [series: block/make-in blk 8]
 	s-frame: memory/s-head
 
 	while [s-frame <> null][
+		base: (as byte-ptr! s-frame) + size? series-frame!	
+		if verbose = 1 [
+			used: used + (as-integer (as byte-ptr! s-frame/heap) - base)
+		]
 		if verbose >= 2 [
-			base: (as byte-ptr! s-frame) + size? series-frame!
 			list: block/make-in series 8
-			integer/load-in list as-integer s-frame/tail - as byte-ptr! s-frame/heap
-			integer/load-in list as-integer (as byte-ptr! s-frame/heap) - base
-			integer/load-in list  as-integer s-frame/tail - base
+			integer/make-in list as-integer s-frame/tail - as byte-ptr! s-frame/heap
+			integer/make-in list as-integer (as byte-ptr! s-frame/heap) - base
+			integer/make-in list as-integer s-frame/tail - base
+			list/header: list/header or flag-new-line
 		]
 		s-frame: s-frame/next
 	]
 
 ;-- Big frames stats --
-	bigs: block/make-in blk 8
+	if verbose > 1 [bigs: block/make-in blk 8]
 	b-frame: memory/b-head
 
 	while [b-frame <> null][
+		if verbose = 1 [
+			used: used + b-frame/size
+		]
 		if verbose >= 2 [
-			integer/load-in bigs b-frame/size
+			cell: integer/make-in bigs b-frame/size
+			cell/header: cell/header or flag-new-line
 		]
 		b-frame: b-frame/next
 	]
+	collector/active?: saved
+
+	used
 ]
 
 ;===========================================
@@ -77,7 +105,7 @@ memory-info: func [
 		val-table: ctx/values
 		
 		s: as series! sym-table/value
-		len: (as-integer s/tail - s/offset) >> 4
+		len: (as-integer s/tail - s/offset) >> 4 + 1
 		symbol: s/offset
 		
 		s: as series! val-table/value
@@ -100,7 +128,7 @@ memory-info: func [
 	]
 	
 	dump-symbols: func [
-		/local tail s i qym
+		/local tail s i sym
 	][
 		s: GET_BUFFER(symbols)
 		sym: as red-symbol! s/offset
@@ -143,7 +171,7 @@ memory-info: func [
 	;-------------------------------------------
 	list-series-buffers: func [
 		frame	[series-frame!]
-		/local series alt? size block count head tail
+		/local series size count head tail
 	][
 		count: 1
 		series: as series-buffer! (as byte-ptr! frame) + size? series-frame!
@@ -194,7 +222,7 @@ memory-info: func [
 		while [n-frame <> null][
 			if verbose >= 2 [
 				print ["#" count + 1 ": "]
-				free-nodes: (as-integer (n-frame/top - n-frame/bottom) + 1) / 4
+				free-nodes: (as-integer (n-frame/top + 1 - n-frame/bottom)) / 4
 				frame-stats 
 					free-nodes
 					n-frame/nodes - free-nodes

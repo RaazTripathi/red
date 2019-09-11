@@ -3,10 +3,10 @@ Red/System [
 	Author:  "Nenad Rakocevic"
 	File: 	 %datatype.reds
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
 	License: {
 		Distributed under the Boost Software License, Version 1.0.
-		See https://github.com/dockimbel/Red/blob/master/BSL-License.txt
+		See https://github.com/red/red/blob/master/BSL-License.txt
 	}
 ]
 
@@ -48,7 +48,7 @@ datatype: context [
 			name	[names!]
 	][
 		type: list/value
-		assert type < 50								;-- hard limit of action table
+		assert type < TYPE_TOTAL_COUNT								;-- hard limit of action table
 		if type > top-id [top-id: type]					;@@ unreliable, needs automatic type IDs
 		list: list + 1
 		
@@ -58,6 +58,9 @@ datatype: context [
 		name: name-table + type
 		name/buffer: as c-string! list/value			;-- store datatype string name
 		name/size: (length? name/buffer) - 1			;-- store string size (not counting terminal `!`)
+		if root <> null [								;-- checks if all datatypes have been loaded
+			name/word: word/load name/buffer
+		]
 		list: list + 1
 		count: count - 3								;-- skip the "header" data
 		
@@ -88,8 +91,24 @@ datatype: context [
 		]
 	]
 	
+	make-in: func [
+		parent	[red-block!]
+		type	[integer!]
+		return: [red-datatype!]
+		/local
+			dt  [red-datatype!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "datatype/make-in"]]
+
+		dt: as red-datatype! ALLOC_TAIL(parent)
+		dt/header: TYPE_DATATYPE						;-- implicit reset of all header flags	
+		dt/value: type
+		dt
+	]
+	
 	push: func [
 		type	[integer!]
+		return: [red-datatype!]
 		/local
 			dt  [red-datatype!]
 	][
@@ -98,47 +117,11 @@ datatype: context [
 		dt: as red-datatype! stack/push*
 		dt/header: TYPE_DATATYPE						;-- implicit reset of all header flags	
 		dt/value: type
+		dt
 	]
 	
 	;-- Actions --
 
-	make*: func [
-		return:	 [red-value!]							;-- return datatype cell pointer
-		/local
-			arg  [red-value!]
-			dt   [red-datatype!]
-			type [red-integer!]
-	][
-		#if debug? = yes [if verbose > 0 [print-line "datatype/make"]]
-		
-		arg: stack/arguments
-		dt:  as red-datatype! arg
-		assert TYPE_OF(dt) = TYPE_DATATYPE
-		
-		dt/header: TYPE_DATATYPE						;-- implicit reset of all header flags	
-		type: as red-integer! arg + 1
-		dt/value: type/value		
-		as red-value! dt
-	]
-	
-	make: func [
-		proto 	[red-value!]
-		spec	[red-value!]
-		return:	[red-datatype!]							;-- return datatype cell pointer
-		/local
-			dt   [red-datatype!]
-			int [red-integer!]
-	][
-		#if debug? = yes [if verbose > 0 [print-line "datatype/make"]]
-		
-		assert TYPE_OF(spec) = TYPE_INTEGER
-		int: as red-integer! spec
-		dt: as red-datatype! stack/push*
-		dt/header: TYPE_DATATYPE
-		dt/value: int/value		
-		dt
-	]
-	
 	form: func [
 		dt		 [red-datatype!]
 		buffer	 [red-string!]
@@ -165,6 +148,8 @@ datatype: context [
 		part	[integer!]
 		indent	[integer!]
 		return: [integer!]
+		/local
+			name [names!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "datatype/mold"]]
 
@@ -177,20 +162,22 @@ datatype: context [
 		arg1      [red-datatype!]						;-- first operand
 		arg2	  [red-datatype!]						;-- second operand
 		op	      [integer!]							;-- type of comparison
-		return:   [logic!]
+		return:   [integer!]
 		/local
-			type  [integer!]
-			res	  [logic!]
+			res	  [integer!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "datatype/compare"]]
 
-		type: TYPE_OF(arg2)
 		switch op [
-			COMP_EQUAL 
-			COMP_STRICT_EQUAL [res: all [type = TYPE_DATATYPE  arg1/value = arg2/value]]
-			COMP_NOT_EQUAL	  [res: any [type <> TYPE_DATATYPE arg1/value <> arg2/value]]
+			COMP_EQUAL
+			COMP_FIND
+			COMP_SAME
+			COMP_STRICT_EQUAL
+			COMP_NOT_EQUAL	  [
+				res: as-integer any [TYPE_OF(arg2) <> TYPE_DATATYPE arg1/value <> arg2/value]
+			]
 			default [
-				print-line ["Error: cannot use: " op " comparison on datatype! value"]
+				res: -2
 			]
 		]
 		res
@@ -202,13 +189,13 @@ datatype: context [
 			TYPE_VALUE
 			"datatype!"
 			;-- General actions --
-			:make
+			null			;make
 			null			;random
 			null			;reflect
 			null			;to
 			:form
 			:mold
-			null			;get-path
+			null			;eval-path
 			null			;set-path
 			:compare
 			;-- Scalar actions --
@@ -241,9 +228,11 @@ datatype: context [
 			null			;index?
 			null			;insert
 			null			;length?
+			null			;move
 			null			;next
 			null			;pick
 			null			;poke
+			null			;put
 			null			;remove
 			null			;reverse
 			null			;select

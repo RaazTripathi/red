@@ -3,31 +3,15 @@ Red/System [
 	Author:  "Nenad Rakocevic"
 	File: 	 %paren.reds
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
 	License: {
 		Distributed under the Boost Software License, Version 1.0.
-		See https://github.com/dockimbel/Red/blob/master/BSL-License.txt
+		See https://github.com/red/red/blob/master/BSL-License.txt
 	}
 ]
 
 paren: context [
 	verbose: 0
-	
-	push*: func [
-		size	  [integer!]
-		return:   [red-paren!]	
-		/local
-			paren [red-paren!]
-	][
-		#if debug? = yes [if verbose > 0 [print-line "paren/push*"]]
-		
-		paren: as red-block! ALLOC_TAIL(root)
-		paren/header: TYPE_PAREN					;-- implicit reset of all header flags
-		paren/head:   0
-		paren/node:   alloc-cells size
-		push paren
-		paren
-	]
 	
 	push: func [
 		paren [red-paren!]
@@ -39,20 +23,6 @@ paren: context [
 	]
 
 	;--- Actions ---
-	
-	make: func [
-		proto 	  [red-value!]
-		spec	  [red-value!]
-		return:	  [red-paren!]
-		/local
-			paren [red-paren!]
-	][
-		#if debug? = yes [if verbose > 0 [print-line "paren/make"]]
-
-		paren: as red-paren! block/make proto spec
-		paren/header: TYPE_PAREN						;-- implicit reset of all header flags
-		paren
-	]
 	
 	mold: func [
 		paren	  [red-paren!]
@@ -73,33 +43,6 @@ paren: context [
 		string/append-char GET_BUFFER(buffer) as-integer #")"
 		part - 1
 	]
-	
-	compare: func [
-		value1	   [red-paren!]							;-- first operand
-		value2	   [red-paren!]							;-- second operand
-		op		   [integer!]							;-- type of comparison
-		return:	   [logic!]
-	][
-		#if debug? = yes [if verbose > 0 [print-line "paren/compare"]]
-
-		if TYPE_OF(value2) <> TYPE_PAREN [RETURN_COMPARE_OTHER]
-		block/compare-each as red-block! value1 as red-block! value2 op
-	]
-	
-	copy: func [
-		paren   [red-paren!]
-		new		[red-paren!]
-		arg		[red-value!]
-		deep?	[logic!]
-		types	[red-value!]
-		return:	[red-series!]
-	][
-		#if debug? = yes [if verbose > 0 [print-line "paren/copy"]]
-
-		paren: as red-paren! block/copy as red-block! paren as red-paren! new arg deep? types
-		paren/header: TYPE_PAREN
-		as red-series! paren
-	]
 
 	init: does [
 		datatype/register [
@@ -107,15 +50,15 @@ paren: context [
 			TYPE_BLOCK
 			"paren!"
 			;-- General actions --
-			:make
-			null			;random
-			null			;reflect
-			null			;to
+			INHERIT_ACTION	;make
+			INHERIT_ACTION	;random
+			INHERIT_ACTION	;reflect
+			INHERIT_ACTION	;to
 			INHERIT_ACTION	;form
 			:mold
 			INHERIT_ACTION	;eval-path
 			null			;set-path
-			:compare
+			INHERIT_ACTION	;compare
 			;-- Scalar actions --
 			null			;absolute
 			null			;add
@@ -137,33 +80,35 @@ paren: context [
 			null			;append
 			INHERIT_ACTION	;at
 			INHERIT_ACTION	;back
-			null			;change
+			INHERIT_ACTION	;change
 			INHERIT_ACTION	;clear
-			:copy
+			INHERIT_ACTION	;copy
 			INHERIT_ACTION	;find
 			INHERIT_ACTION	;head
 			INHERIT_ACTION	;head?
 			INHERIT_ACTION	;index?
 			INHERIT_ACTION	;insert
 			INHERIT_ACTION	;length?
+			INHERIT_ACTION	;move
 			INHERIT_ACTION	;next
 			INHERIT_ACTION	;pick
 			INHERIT_ACTION	;poke
+			INHERIT_ACTION	;put
 			INHERIT_ACTION	;remove
-			null			;reverse
+			INHERIT_ACTION	;reverse
 			INHERIT_ACTION	;select
-			null			;sort
+			INHERIT_ACTION	;sort
 			INHERIT_ACTION	;skip
-			null			;swap
+			INHERIT_ACTION	;swap
 			INHERIT_ACTION	;tail
 			INHERIT_ACTION	;tail?
-			null			;take
+			INHERIT_ACTION	;take
 			null			;trim
 			;-- I/O actions --
 			null			;create
 			null			;close
 			null			;delete
-			null			;modify
+			INHERIT_ACTION	;modify
 			null			;open
 			null			;open?
 			null			;query

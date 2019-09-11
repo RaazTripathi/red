@@ -3,14 +3,14 @@ REBOL [
 	Author:  "Nenad Rakocevic"
 	File: 	 %target-class.r
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
-	License: "BSD-3 - https://github.com/dockimbel/Red/blob/master/BSD-3-License.txt"
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
+	License: "BSD-3 - https://github.com/red/red/blob/master/BSD-3-License.txt"
 ]
 
 target-class: context [
 	target: little-endian?: struct-align: ptr-size: void-ptr: none ; TBD: document once stabilized
 	default-align: stack-width: stack-slot-max:				  	   ; TBD: document once stabilized
-	branch-offset-size: none		   							   ; TBD: document once stabilized
+	branch-offset-size: locals-offset: def-locals-offset: none	   ; TBD: document once stabilized
 	
 	on-global-prolog: 		 none					;-- called at start of global code section
 	on-global-epilog: 		 none					;-- called at end of global code section
@@ -30,10 +30,15 @@ target-class: context [
 	emit-casting: emit-call-syscall: emit-call-import: ;-- just pre-bind word to avoid contexts issue
 	emit-call-native: emit-not: emit-push: emit-pop:
 	emit-integer-operation: emit-float-operation: 
-	emit-throw:	on-init: emit-alt-last: none
+	emit-throw:	on-init: emit-alt-last: emit-log-b:
+	emit-variable: emit-read-io: emit-io-write: 
+	emit-push-all: emit-pop-all: emit-atomic-load: emit-atomic-store: 
+	emit-atomic-math: emit-atomic-fence: none
 	
 	comparison-op: [= <> < > <= >=]
-	math-op:	   [+ - * / // ///]
+	math-op:	   compose [+ - * / // (to-word "%")]
+	mod-rem-op:    compose [// (to-word "%")]
+	mod-rem-func:  compose [// mod (to-word "%") rem]
 	bitwise-op:	   [and or xor]
 	bitshift-op:   [>> << -**]
 	
@@ -66,15 +71,16 @@ target-class: context [
 	]
 	
 	stack-encode: func [offset [integer!]][
-		if any [								;-- local variable case
+		either any [								;-- local variables only
 			offset < -128
 			offset > 127
 		][
-			compiler/throw-error "#code generation error: overflow in emit-variable"
+			to-bin32 offset
+		][
+			to-bin8 offset
 		]
-		skip debase/base to-hex offset 16 3		; @@ just to-char ??
 	]
-
+	
 	emit: func [bin [binary! char! block!]][
 		if verbose >= 4 [print [">>>emitting code:" mold bin]]
 		append emitter/code-buf bin
@@ -87,56 +93,6 @@ target-class: context [
 			append/only 							;-- record reloc reference
 				second last emitter/chunks/queue
 				back tail spec/3					
-		]
-	]
-
-	emit-variable: func [
-		name [word! object!] 
-		gcode [binary! block! none!]				;-- global opcodes
-		pcode [binary! block! none!]				;-- PIC opcodes
-		lcode [binary! block!] 						;-- local opcodes
-		/local offset
-	][
-		if object? name [name: compiler/unbox name]
-		
-		case [
-			offset: select emitter/stack name [
-				offset: stack-encode offset 			;-- local variable case
-				either block? lcode [
-					emit reduce bind lcode 'offset
-				][
-					emit lcode
-					emit offset
-				]
-			]
-			PIC? [										;-- global variable case (PIC version)
-				either block? pcode [
-					foreach code reduce pcode [
-						either code = 'address [
-							emit-reloc-addr emitter/symbols/:name
-						][
-							emit code
-						]
-					]
-				][
-					emit pcode
-					emit-reloc-addr emitter/symbols/:name
-				]
-			]
-			'global [									;-- global variable case
-				either block? gcode [
-					foreach code reduce gcode [
-						either code = 'address [
-							emit-reloc-addr emitter/symbols/:name
-						][
-							emit code
-						]
-					]
-				][
-					emit gcode
-					emit-reloc-addr emitter/symbols/:name
-				]
-			]
 		]
 	]
 	
@@ -170,8 +126,11 @@ target-class: context [
 	implicit-cast: func [arg /local right-width][
 		right-width: first get-width arg none
 		
-		if all [width = 4 right-width = 1][			;-- detect byte! -> integer! implicit casting
-			arg: make object! [action: 'type-cast type: [integer!] data: arg]
+		if any [
+			all [width = 4 right-width = 1]			;-- detect byte! -> integer! implicit casting
+			find [float! float32! float64!] first compiler/get-type arg
+		][
+			arg: make compiler/action-class [action: 'type-cast type: [integer!] data: arg]
 			emit-casting arg yes					;-- type cast right argument
 		]
 	]
@@ -201,10 +160,29 @@ target-class: context [
 		total
 	]
 	
+	foreach-member: func [spec [block!] body [block!] /local type][
+		either 'value = last spec [
+			unless 'struct! = spec/1 [spec: compiler/find-aliased spec/1]
+			body: bind/copy body 'type
+			if block? spec/1 [spec: next spec]
+
+			foreach [name t] spec/2 [				;-- skip 'struct!
+				unless word? name [break]
+				either 'value = last type: t [
+					foreach-member type body
+				][
+					do body
+				]
+			]
+		][
+			do body
+		]
+	]
+	
 	get-arguments-class: func [args [block!] /local c a b arg][
 		c: 1
 		foreach op [a b][
-			arg: either object? args/:c [compiler/cast args/:c][args/:c]		
+			arg: either object? args/:c [compiler/cast args/:c][args/:c]
 			set op either arg = <last> [
 				 'reg								;-- value in accumulator
 			][
@@ -225,25 +203,33 @@ target-class: context [
 		reduce [a b]
 	]
 	
-	emit-call: func [name [word!] args [block!] sub? [logic!] /local spec fspec res type][
+	emit-call: func [name [word!] args [block!] /local spec fspec res type attribs][
 		if verbose >= 3 [print [">>>calling:" mold name mold args]]
 
 		fspec: select compiler/functions name
 		spec: any [select emitter/symbols name next fspec]
 		type: either fspec/2 = 'routine [fspec/2][first spec]
+		attribs: compiler/get-attributes fspec/4
 
 		switch type [
 			syscall [
-				emit-call-syscall args fspec
+				emit-call-syscall args fspec attribs
 			]
 			import [
-				emit-call-import args fspec spec
+				emit-call-import args fspec spec attribs
 			]
 			native [
-				emit-call-native args fspec spec
+				switch/default name [
+					log-b [							;@@ needs a new function type...
+						emit-pop
+						emit-log-b compiler/last-type/1
+					]
+				][
+					emit-call-native args fspec spec attribs
+				]
 			]
 			routine [
-				emit-call-native/routine args fspec spec name
+				emit-call-native/routine args fspec spec attribs name
 			]
 			inline [
 				if block? args/1 [args/1: <last>]	;-- works only for unary functions	
@@ -252,26 +238,26 @@ target-class: context [
 					push  [emit-push args/1]
 					pop	  [emit-pop]
 					throw [
+						compiler/check-throw
 						compiler/last-type: [integer!]
-						emit-throw args/1
+						either compiler/catch-attribut? [
+							emit-throw args/1
+						][
+							emit-throw/thru args/1
+						]
 					]
 				] name
 				if name = 'not [res: compiler/get-type args/1]
 			]
 			op [
-				either any [
-					compiler/any-float? compiler/resolve-expr-type args/1
-					compiler/any-float? compiler/resolve-expr-type args/2
-				][
+				either compiler/any-float? compiler/resolve-expr-type args/1 [
 					emit-float-operation name args
 				][
 					emit-integer-operation name args
 				]
-				if sub? [emitter/logic-to-integer name]
-				
-				unless find comparison-op name [		;-- comparison always return a logic!
+				unless find comparison-op name [	;-- comparison always return a logic!
 					res: any [
-						all [not sub? block? args/1 compiler/last-type]
+						all [block? args/1 compiler/last-type]
 						compiler/get-type args/1	;-- other ops return type of the first argument	
 					]
 				]

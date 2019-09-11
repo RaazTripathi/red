@@ -3,10 +3,10 @@ Red/System [
 	Author:  "Nenad Rakocevic"
 	File: 	 %logic.reds
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
 	License: {
 		Distributed under the Boost Software License, Version 1.0.
-		See https://github.com/dockimbel/Red/blob/master/BSL-License.txt
+		See https://github.com/red/red/blob/master/BSL-License.txt
 	}
 ]
 
@@ -42,7 +42,7 @@ logic: context [
 	top-true?: func [
 		return:  [logic!]
 	][
-		not top-false?										;-- true if not none or false
+		not top-false?									;-- true if not none or false
 	]
 
 	top-false?: func [
@@ -51,10 +51,10 @@ logic: context [
 			arg	 [red-logic!]
 			type [integer!]
 	][
-		arg: as red-logic! stack/top - 1
+		arg: as red-logic! stack/get-top
 		type: TYPE_OF(arg)
 
-		any [											;-- true if not none or false
+		any [
 			type = TYPE_NONE
 			all [type = TYPE_LOGIC not arg/value]
 		]
@@ -62,10 +62,20 @@ logic: context [
 		
 	true?: func [
 		return:  [logic!]
+		/local
+			arg	 [red-logic!]
+			type [integer!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "logic/true?"]]
 		
-		not false?										;-- true if not none or false
+		arg: as red-logic! stack/arguments
+		type: TYPE_OF(arg)
+		if type = TYPE_UNSET [fire [TO_ERROR(script no-return)]]
+		
+		not any [										;-- true if not none or false
+			type = TYPE_NONE
+			all [type = TYPE_LOGIC not arg/value]
+		]
 	]
 	
 	false?: func [
@@ -79,10 +89,25 @@ logic: context [
 		arg: as red-logic! stack/arguments
 		type: TYPE_OF(arg)
 		
-		any [											;-- true if not none or false
+		any [
 			type = TYPE_NONE
 			all [type = TYPE_LOGIC not arg/value]
 		]
+	]
+	
+	make-in: func [
+		parent	 [red-block!]
+		value 	 [logic!]
+		return:	 [red-logic!]
+		/local
+			cell [red-logic!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "logic/make-in"]]
+
+		cell: as red-logic! ALLOC_TAIL(parent)
+		cell/header: TYPE_LOGIC							;-- implicit reset of all header flags
+		cell/value: value
+		cell
 	]
 	
 	push: func [
@@ -101,47 +126,71 @@ logic: context [
 	
 	;-- Actions -- 
 
-	make*: func [
-		return:	 [red-value!]							;-- return cell pointer
-		/local
-			cell [red-logic!]
-			args [red-value!]
-			id	 [red-integer!]
-	][
-		#if debug? = yes [if verbose > 0 [print-line "logic/make"]]
-
-		args: stack/arguments
-		cell: as red-logic! args
-		id: as red-integer! args + 1
-		
-		assert TYPE_OF(cell) = TYPE_DATATYPE
-		assert TYPE_OF(id)   = TYPE_INTEGER
-		
-		cell/header: TYPE_LOGIC							;-- implicit reset of all header flags
-		cell/value: id/value <> 0
-		as red-value! cell
-	]
-	
 	make: func [
-		proto	 [red-value!]	
-		spec	 [red-value!]
-		return:	 [red-logic!]							;-- return cell pointer
+		proto	[red-value!]
+		spec	[red-value!]
+		type	[integer!]
+		return:	[red-logic!]							;-- return cell pointer
 		/local
-			cell [red-logic!]
-			args [red-value!]
-			id	 [red-integer!]
+			bool [red-logic!]
+			int	 [red-integer!]
+			fl	 [red-float!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "logic/make"]]
 
-		assert TYPE_OF(spec) = TYPE_INTEGER
-		id: as red-integer! spec
-	
-		cell: as red-logic! stack/push*
-		cell/header: TYPE_LOGIC							;-- implicit reset of all header flags
-		cell/value: id/value <> 0
-		cell
+		switch TYPE_OF(spec) [
+			TYPE_INTEGER [
+				int: as red-integer! spec
+				bool: as red-logic! proto
+				bool/header: TYPE_LOGIC					;-- implicit reset of all header flags
+				bool/value: as-logic int/value
+				bool
+			]
+			TYPE_FLOAT
+			TYPE_PERCENT [
+				fl: as red-float! spec
+				bool: as red-logic! proto
+				bool/header: TYPE_LOGIC					;-- implicit reset of all header flags
+				bool/value: fl/value <> 0.0
+				bool
+			]
+			default [to proto spec type]
+		]
+	]
+
+	random: func [
+		logic	[red-logic!]
+		seed?	[logic!]
+		secure? [logic!]
+		only?   [logic!]
+		return: [red-logic!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "logic/random"]]
+
+		either seed? [
+			_random/srand as-integer logic/value
+			logic/header: TYPE_UNSET
+		][
+			logic/value: _random/rand % 2 <> 0
+		]
+		logic
 	]
 	
+	to: func [
+		proto 	[red-value!]							;-- overwrite this slot with result
+		spec	[red-value!]
+		type	[integer!]
+		return: [red-logic!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "logic/to"]]
+
+		switch TYPE_OF(spec) [
+			TYPE_LOGIC [as red-logic! spec]
+			TYPE_NONE  [false-value]
+			default	   [true-value]
+		]
+	]
+
 	form: func [
 		boolean	[red-logic!]
 		buffer	[red-string!]
@@ -168,27 +217,37 @@ logic: context [
 	][
 		#if debug? = yes [if verbose > 0 [print-line "logic/mold"]]
 
-		form boolean buffer arg part
+		either all? [
+			string/concatenate-literal buffer either boolean/value ["#[true]"] ["#[false]"]
+			part - either boolean/value [7] [8]
+		] [
+			form boolean buffer arg part
+		]
 	]
 	
 	compare: func [
 		arg1      [red-logic!]							;-- first operand
 		arg2	  [red-logic!]							;-- second operand
 		op	      [integer!]							;-- type of comparison
-		return:   [logic!]
+		return:   [integer!]
 		/local
 			type  [integer!]
-			res	  [logic!]
+			res	  [integer!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "logic/compare"]]
 
 		type: TYPE_OF(arg2)
+		if type <> TYPE_LOGIC [RETURN_COMPARE_OTHER]
 		switch op [
-			COMP_EQUAL 
-			COMP_STRICT_EQUAL [res: all [type = TYPE_LOGIC  arg1/value = arg2/value]]
-			COMP_NOT_EQUAL	  [res: any [type <> TYPE_LOGIC arg1/value <> arg2/value]]
+			COMP_EQUAL
+			COMP_FIND
+			COMP_SAME
+			COMP_STRICT_EQUAL
+			COMP_NOT_EQUAL
+			COMP_SORT
+			COMP_CASE_SORT [res: (as-integer arg1/value) - (as-integer arg2/value)]
 			default [
-				print-line ["Error: cannot use: " op " comparison on logic! value"]
+				res: -2
 			]
 		]
 		res
@@ -201,7 +260,42 @@ logic: context [
 		bool/value: not bool/value
 		as red-value! bool
 	]
-	
+
+	do-bitwise: func [
+		type	  [integer!]
+		return:	  [red-logic!]
+		/local
+			left  [red-logic!]
+			right [red-logic!]
+	][
+		left: as red-logic! stack/arguments
+		right: left + 1
+		if TYPE_OF(right) <> TYPE_LOGIC [
+			ERR_EXPECT_ARGUMENT((TYPE_OF(right)) 1)
+		]
+		left/value: switch type [
+			OP_AND [left/value and right/value]
+			OP_OR  [left/value or  right/value]
+			OP_XOR [left/value xor right/value]
+		]
+		left
+	]
+
+	and~: func [return:	[red-value!]][
+		#if debug? = yes [if verbose > 0 [print-line "logic/and~"]]
+		as red-value! do-bitwise OP_AND
+	]
+
+	or~: func [return:	[red-value!]][
+		#if debug? = yes [if verbose > 0 [print-line "logic/or~"]]
+		as red-value! do-bitwise OP_OR
+	]
+
+	xor~: func [return:	[red-value!]][
+		#if debug? = yes [if verbose > 0 [print-line "logic/xor~"]]
+		as red-value! do-bitwise OP_XOR
+	]
+
 	init: does [
 		true-value/header:  TYPE_LOGIC
 		true-value/value: 	yes
@@ -215,12 +309,12 @@ logic: context [
 			"logic!"
 			;-- General actions --
 			:make
-			null			;random
+			:random
 			null			;reflect
-			null			;to
+			:to
 			:form
 			:mold
-			null			;get-path
+			null			;eval-path
 			null			;set-path
 			:compare
 			;-- Scalar actions --
@@ -236,10 +330,10 @@ logic: context [
 			null			;even?
 			null			;odd?
 			;-- Bitwise actions --
-			null			;and~
+			:and~
 			:complement
-			null			;or~
-			null			;xor~
+			:or~
+			:xor~
 			;-- Series actions --
 			null			;append
 			null			;at
@@ -253,9 +347,11 @@ logic: context [
 			null			;index?
 			null			;insert
 			null			;length?
+			null			;move
 			null			;next
 			null			;pick
 			null			;poke
+			null			;put
 			null			;remove
 			null			;reverse
 			null			;select

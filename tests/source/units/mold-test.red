@@ -1,74 +1,194 @@
 Red [
 	Title:   "Red mold test script"
-	Author:  "Nenad Rakocevic & Peter W A Wood"
+	Author:  "bitbegin"
 	File: 	 %mold-test.red
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2013 Nenad Rakocevic & Peter W A Wood. All rights reserved."
-	License: "BSD-3 - https://github.com/dockimbel/Red/blob/origin/BSD-3-License.txt"
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
+	License: "BSD-3 - https://github.com/red/red/blob/origin/BSD-3-License.txt"
 ]
 
 #include  %../../../quick-test/quick-test.red
 
 ~~~start-file~~~ "mold"
 
+===start-group=== "string-basic"
+
+	--test-- "mold-string-baseic-1"
+		a: ""				;-- literal: ""
+		b: {""}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-2"
+		a: {}				;-- literal: ""
+		b: {""}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-3"
+		a: "{}"				;-- literal: "{}"
+		b: {"{}"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-4"
+		a: {""}				;-- literal: {""}
+		b: {{""}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-5"
+		a: "{"				;-- literal: "{"
+		b: {"^{"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-6"
+		a: "}"				;-- literal: "}"
+		b: {"^}"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-7"
+		a: {"}				;-- literal: {"}
+		b: {{"}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-8"
+		a: {""}				;-- literal: {""}
+		b: {{""}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-9"
+		a: "}{"				;-- literal: "}{"
+		b: {"^}^{"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-10"
+		a: "^""				;-- literal: {"}
+		b: {{"}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-11"
+		a: "^"{"			;-- literal: {"^{}
+		b: {^{"^^^{^}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-12"
+		a: "^"{}"			;-- literal: {"{}}
+		b: {{"{}}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-13"
+		a: "^"}{"			;-- literal: {"^}^{}
+		b: {{"^^}^^{}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-14"
+		a: {^{}				;-- literal: "{"
+		b: {"^{"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-15"
+		a: {^{"}			;-- literal: {^{"}
+		b: {^{^^^{"^}}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-16"
+		a: "{{{"			;-- literal: "{{{"
+		b: {"^{^{^{"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-17"
+		a: "}}}"			;-- literal: "}}}"
+		b: {"^}^}^}"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-18"
+		a: "{{{}}}}"		;-- literal: "{{{}}}}"
+		b: {"{{{}}}^}"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-19"
+		a: "}{}"			;-- literal: "}{}"
+		b: {"^}{}"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-20"
+		a: "}{{}"			;-- literal: "}{{}"
+		b: {"^}^{^{^}"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-21"
+		a: "}{{}}"			;-- literal: "}{{}}"
+		b: {"^}{{}}"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-22"
+		a: "{}{"			;-- literal: "{}{"
+		b: {"{}^{"}
+		--assert b = mold a
+
+	--test-- "mold-string-baseic-23"
+		a: "{}{}{"			;-- literal: "{}{"
+		b: {"{}{}^{"}
+		--assert b = mold a
+
+===end-group=== 
+
 ===start-group=== "string"
-
-	--test-- "mold-string1 #issue 498"
-	--assert {{""}} = mold mold {}
 	
-	--test-- "mold-string2"
-	--assert {"abcde"} = mold "abcde"
+	--test-- "mold-string-1"
+		a: "abc"			;-- literal: "abc"
+		b: {"abc"}
+		--assert b = mold a
+
+	--test-- "mold-string-2"
+		a: "a^"bc"			;-- literal: {a"bc}
+		b: {{a"bc}}
+		--assert b = mold a
+
+	--test-- "mold-string-3"
+		a: "a{bc"			;-- literal: "a{bc"
+		b: {"a^{bc"}
+		--assert b = mold a
+
+	--test-- "mold-string-4"
+		a: "a}{bc"			;-- literal: "a}{bc"
+		b: {"a^}^{bc"}
+		--assert b = mold a
+
+	--test-- "mold-string-5"
+		a: "a}{bc"			;-- literal: "a}{bc"
+		b: {{"a^^}^^{bc"}}
+		--assert b = mold mold a
+
+	--test-- "mold-string-6"
+		a: "a^"b^"c"		;-- literal: {a"b"c}
+		b: {{a"b"c}}
+		--assert b = mold a
+
+	--test-- "mold-string-7"
+		a: "a{}bc"			;-- literal: "a{}bc"
+		b: {"a{}bc"}
+		--assert b = mold a
+
+===end-group=== 
+
+===start-group=== "mold-all"
 	
-	--test-- "mold-string3"
-	--assert {"abc^(2710)def"} = mold "abc✐def"
-	
-	--test-- "mold-string4"
-	--assert {"abc^(10000)def"} = mold "abc^(010000)def"
-	  
-===end-group===
+	--test-- "mold-true" --assert "true" = mold true
 
-===start-group=== "char"
+	--test-- "mold-all-true" --assert "#[true]" = mold/all true
 
-	--test-- "mold-char1"
-	--assert {#"a"} = mold #"a"
-	
-	--test-- "mold-char2"
-	--assert {#"^(2710)"} = mold #"✐"
-	
-	--test-- "mold-char3"
-	--assert {#"^(10000)"} = mold #"^(010000)"
-	
-===end-group===
+	--test-- "mold-false" --assert "false" = mold false
 
-===start-group=== "logic"
-	
-	--test-- "mold-logic1"
-	--assert "true" = mold true
-	--assert "false" = mold false
+	--test-- "mold-all-false" --assert "#[false]" = mold/all false
 
-===end-group===
+	--test-- "mold-none" --assert "none" = mold none
 
-===start-group=== "block"
+	--test-- "mold-all-none" --assert "#[none]" = mold/all none
 
-	--test-- "mold-block1"
-	--assert "[a b c d e]" = mold [a b c d e]
-	--assert "[b c d e]" = mold next [a b c d e]
-	--assert "[c d e]" = mold at [a b c d e ] 3
-	--assert "[]" = mold tail [a b c d e]
-	
-===end-group===
+	--test-- "mold-block" --assert "[true false none]" = mold [#[true] #[false] #[none]]
 
-===start-group=== "integer"
+	--test-- "mold-all-block"
+		--assert "[#[true] #[false] #[none]]" = mold/all [#[true] #[false] #[none]]
 
-	--test-- "mold-integer1"
-	--assert "1" = mold 1
-	--assert "-1" = mold FFFFFFFFh
-	--assert "2147483647" = mold 7FFFFFFFh
-	--assert "-2147483648" = mold 80000000h
-	--assert "0" = mold 00h
- 
-===end-group===
+===end-group=== 
 
 
 ~~~end-file~~~
-

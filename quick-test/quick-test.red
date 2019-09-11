@@ -2,20 +2,38 @@ Red [
 	Title:   "Red simple testing framework"
 	Author:  "Peter W A Wood"
 	File: 	 %quick-test.red
-	Version: "0.1.0"
-	Rights:  "Copyright (C) 2012 Peter W A Wood. All rights reserved."
-	License: "BSD-3 - https://github.com/dockimbel/Red/blob/master/BSD-3-License.txt"
+	Version: "0.2.0"
+	Rights:  "Copyright (C) 2012-2015 Peter W A Wood. All rights reserved."
+	License: "BSD-3 - https://github.com/red/red/blob/master/BSD-3-License.txt"
 ]
 
 ;; counters
-qt-run-tests: 0 
-qt-run-asserts: 0
-qt-run-passes: 0
-qt-run-failures: 0
-qt-file-tests: 0 
-qt-file-asserts: 0 
-qt-file-passes: 0 
-qt-file-failures: 0
+#either any [
+	not in system 'state
+	not system/state/interpreted?	
+][
+  qt-run-tests: 0 
+  qt-run-asserts: 0
+  qt-run-passes: 0
+  qt-run-failures: 0
+  qt-file-tests: 0 
+  qt-file-asserts: 0 
+  qt-file-passes: 0 
+  qt-file-failures: 0
+][
+  if not value? 'qt-run-tests [
+    qt-run-tests: 0 
+    qt-run-asserts: 0
+    qt-run-passes: 0
+    qt-run-failures: 0
+    qt-file-tests: 0 
+    qt-file-asserts: 0 
+    qt-file-passes: 0 
+    qt-file-failures: 0
+  ]  
+]
+qt-file-name: none
+qt-verbose: false
 
 ;; group switches
 qt-group-name-not-printed: true
@@ -65,6 +83,10 @@ qt-init-file: func [] [
 ===start-group===: func [
   title [string!]
 ][
+  if qt-verbose [
+    prin "===group=== "
+    print title
+  ]
   qt-group-name: title
   qt-group?: true
 ]
@@ -72,6 +94,10 @@ qt-init-file: func [] [
 --test--: func [
   title [string!]
 ][
+  if qt-verbose [
+    prin "--test-- "
+    print title
+  ]
   qt-test-name: title
   qt-file-tests: qt-file-tests + 1
 ]
@@ -96,6 +122,43 @@ qt-init-file: func [] [
     prin "--test-- " 
     prin qt-test-name
     print " FAILED**************"
+  ]
+]
+
+--assertf~=: func[
+  x           [float!]
+  y           [float!]
+  e           [float!]
+  /local
+    diff      [float!]
+    e1        [float!]
+    e2        [float!]
+][
+  ;; calculate tolerance to use
+  ;;    as e * max (1, x, y)
+  either x > 0.0 [
+    e1: x * e
+  ][
+    e1: -1.0 * x * e
+  ]
+  if e > e1 [e1: e]
+  either y > 0.0 [
+    e2: y * e
+  ][
+    e2: -1.0 * y * e
+  ]
+  if e1 > e2 [e2: e1]
+
+  ;; perform almost equal check
+  either x > y [
+    diff: x - y
+  ][
+    diff: y - x
+  ]
+  either diff > e2 [
+    --assert false
+  ][
+    --assert true
   ]
 ]
  
@@ -123,9 +186,7 @@ qt-print-totals: func [
 ]
 
 ~~~end-file~~~: func [] [
-  print ""
-  prin "~~~finished test~~~ " 
-  print qt-file-name
+  print ["~~~finished test~~~ " qt-file-name]
   qt-print-totals qt-file-tests qt-file-asserts qt-file-passes qt-file-failures
   print ""
   
@@ -144,6 +205,3 @@ qt-print-totals: func [
                   qt-run-passes
                   qt-run-failures
 ]
-
-
-

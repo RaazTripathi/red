@@ -3,10 +3,10 @@ Red/System [
 	Author:  "Nenad Rakocevic"
 	File: 	 %context.reds
 	Tabs:	 4
-	Rights:  "Copyright (C) 2011-2012 Nenad Rakocevic. All rights reserved."
+	Rights:  "Copyright (C) 2011-2018 Red Foundation. All rights reserved."
 	License: {
 		Distributed under the Boost Software License, Version 1.0.
-		See https://github.com/dockimbel/Red/blob/master/BSL-License.txt
+		See https://github.com/red/red/blob/master/BSL-License.txt
 	}
 ]
 
@@ -27,19 +27,84 @@ _context: context [
 		list:   as red-word! series/offset
 		end:    as red-word! series/tail
 		
-		if case? [sym: symbol/resolve sym]
-		
-		while [list < end][
-			if sym = list/symbol [
-				return (as-integer list - as red-word! series/offset) >> 4	;@@ log2(size? cell!) hardcoded
+		either case? [
+			sym: symbol/resolve sym
+			while [list < end][
+				if sym = symbol/resolve list/symbol [
+					return (as-integer list - as red-word! series/offset) >> 4	;@@ log2(size? cell!) hardcoded
+				]
+				list: list + 1
 			]
-			list: list + 1
+		][
+			while [list < end][
+				if sym = list/symbol [
+					return (as-integer list - as red-word! series/offset) >> 4	;@@ log2(size? cell!) hardcoded
+				]
+				list: list + 1
+			]
 		]
 		-1												;-- search failed
 	]
 	
-	add-global: func [
+	set-global: func [
 		symbol	[integer!]
+		value	[red-value!]
+		return:	[red-value!]
+		/local
+			ctx	   [red-context!]
+			word   [red-word!]
+			values [series!]
+			idx	   [integer!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "_context/set-global"]]
+
+		ctx: TO_CTX(global-ctx)
+		idx: find-word ctx symbol no
+		if idx = -1 [
+			word: add-global symbol
+			idx: word/index
+		]
+		values: as series! ctx/values/value
+		copy-cell value values/offset + idx
+	]
+	
+	get-global: func [
+		symbol  [integer!]
+		return:	[red-value!]
+		/local
+			ctx	   [red-context!]
+			values [series!]
+			index  [integer!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "_context/get-global"]]
+
+		ctx: TO_CTX(global-ctx)
+		values: as series! ctx/values/value
+		index: find-word ctx symbol yes
+		assert index <> -1
+		values/offset + index
+	]
+	
+	add-global: func [
+		sym		[integer!]
+		return: [red-word!]
+		/local
+			w	[red-word!]
+	][
+		#if debug? = yes [if verbose > 0 [print-line "_context/add-global"]]
+		
+		w: add-global-word sym no yes
+		either red/boot? [
+			as red-word! copy-cell as red-value! w ALLOC_TAIL(root)
+		][
+			w
+		]
+	]
+	
+	add-global-word: func [
+		sym		[integer!]
+		case?	[logic!]
+		store?	[logic!]
 		return: [red-word!]
 		/local
 			ctx	  [red-context!]
@@ -48,21 +113,33 @@ _context: context [
 			s  	  [series!]
 			id	  [integer!]
 	][
-		#if debug? = yes [if verbose > 0 [print-line "_context/add-global"]]
-
 		ctx: TO_CTX(global-ctx)
-		id: find-word ctx symbol no
+		id: find-word ctx sym case?
 		s: as series! ctx/symbols/value
 		
-		if id <> -1 [return as red-word! s/offset + id]	;-- word already defined in global context
+		if id <> -1 [
+			word: as red-word! s/offset + id	;-- word already defined in global context
+			if all [case? store? word/symbol <> sym][
+				word: as red-word! copy-cell as red-value! word ALLOC_TAIL(root)
+				word/symbol: sym
+			]
+			return word
+		]
 		
 		s: as series! ctx/symbols/value
 		word: as red-word! alloc-tail s
-		
 		word/header: TYPE_WORD							;-- implicit reset of all header flags
 		word/ctx: 	 global-ctx
-		word/symbol: symbol
-		word/index:  (as-integer s/tail - s/offset) >> 4 - 1
+		word/symbol: sym
+		s: as series! ctx/symbols/value
+
+		id: either positive? symbol/get-alias-id sym [		;-- alias, fetch original id
+			find-word ctx sym yes
+		][
+			(as-integer s/tail - s/offset) >> 4 - 1		;-- index is zero-base
+		]
+
+		word/index:  id
 
 		value: alloc-tail as series! ctx/values/value
 		value/header: TYPE_UNSET
@@ -85,10 +162,11 @@ _context: context [
 		if id <> -1 [return null]
 
 		s: as series! ctx/symbols/value
+		id: (as-integer s/tail - s/offset) >> 4			;-- index is zero-base
 		w: as red-word! alloc-tail s
 		copy-cell as cell! word as cell! w
 		w/ctx: ctx/self
-		w/index: (as-integer s/tail - s/offset) >> 4 - 1
+		w/index: id
 		
 		s: as series! ctx/symbols/value					;-- refreshing pointer after alloc-tail
 		copy-cell value alloc-tail as series! ctx/values/value
@@ -110,17 +188,19 @@ _context: context [
 		if id <> -1 [return id]
 		
 		s: as series! ctx/symbols/value
+		id: (as-integer s/tail - s/offset) >> 4			;-- index is zero-base
+
 		sym: alloc-tail s
 		copy-cell as cell! word sym
 		sym/header: TYPE_WORD							;-- force word! type
-		s: as series! ctx/symbols/value					;-- refreshing pointer after alloc-tail
+		word: as red-word! sym
+		word/index: id
 		
 		unless ON_STACK?(ctx) [
 			value: alloc-tail as series! ctx/values/value
 			value/header: TYPE_UNSET
 		]
-		
-		(as-integer s/tail - s/offset) >> 4 - 1
+		id
 	]
 	
 	set-integer: func [
@@ -153,12 +233,18 @@ _context: context [
 	]
 
 	set-in: func [
-		word 		[red-word!]
-		value		[red-value!]
-		ctx			[red-context!]
-		return:		[red-value!]
+		word 	[red-word!]
+		value	[red-value!]
+		ctx		[red-context!]
+		event?	[logic!]								;-- TRUE: trigger object events
+		return:	[red-value!]
 		/local
 			values	[series!]
+			obj		[red-object!]
+			slot	[red-value!]
+			old		[red-value!]
+			saved	[red-value!]
+			s		[series!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "_context/set-in"]]
 		
@@ -166,11 +252,30 @@ _context: context [
 			word/index: find-word ctx word/symbol no
 			if word/index = -1 [add ctx word]
 		]
+		if null? ctx/values [
+			fire [TO_ERROR(script not-defined) word]
+		]
 		either ON_STACK?(ctx) [
 			copy-cell value (as red-value! ctx/values) + word/index
 		][
 			values: as series! ctx/values/value
-			copy-cell value values/offset + word/index
+			slot: values/offset + word/index
+			
+			if event? [
+				s: as series! ctx/self/value
+				obj: as red-object! s/offset + 1
+				
+				if all [TYPE_OF(obj) = TYPE_OBJECT obj/on-set <> null][
+					saved: stack/top
+					old: stack/push slot
+					word: as red-word! word
+					copy-cell value slot
+					object/fire-on-set obj word old value
+					stack/top: saved
+					return slot
+				]
+			]
+			copy-cell value slot
 		]
 	]
 	
@@ -184,7 +289,7 @@ _context: context [
 		#if debug? = yes [if verbose > 0 [print-line "_context/set"]]
 
 		node: word/ctx
-		set-in word value TO_CTX(node)
+		set-in word value TO_CTX(node) yes
 	]
 	
 	get-in: func [
@@ -193,33 +298,26 @@ _context: context [
 		return:	   [red-value!]
 		/local
 			values [series!]
-			sym	   [red-symbol!]
-			obj	   [red-object!]
+			s	   [series!]
 	][
-		#if debug? = yes [if verbose > 0 [print-line "_context/get-with"]]
+		#if debug? = yes [if verbose > 0 [print-line "_context/get-in"]]
 
 		if all [
-			ctx/header and flag-self-mask <> 0			;-- test if context handles SELF
+			TYPE_OF(ctx) = TYPE_OBJECT					;-- test special ctx pointer for SELF
 			word/index = -1
 			word/symbol = words/self
 		][
-			obj: as red-object! stack/push*
-			obj/header: TYPE_OBJECT
-			obj/ctx: ctx/self
-			return as red-value! obj					;-- special resolution for SELF
+			s: as series! word/ctx/value
+			return s/offset								;-- return original object value
 		]
 		if any [										;-- ensure word is properly bound to a context
 			null? ctx
 			word/index = -1
 		][
-			sym: symbol/get word/symbol
-			print-line ["*** Error: word '" sym/cache " has no value"]
-			halt
+			fire [TO_ERROR(script no-value) word]
 		]
 		if null? ctx/values [
-			sym: symbol/get word/symbol
-			print-line ["*** Error: undefined context for word '" sym/cache]
-			halt
+			fire [TO_ERROR(script not-in-context) word]
 		]
 		either ON_STACK?(ctx) [
 			(as red-value! ctx/values) + word/index
@@ -240,32 +338,83 @@ _context: context [
 		node: word/ctx
 		get-in word TO_CTX(node)
 	]
+	
+	clone: func [
+		slot	[red-block!]
+		return: [node!]
+		/local
+			obj		[red-object!]
+			node	[node!]
+			sym		[red-word!]
+			ctx		[red-context!]
+			new		[node!]
+			src		[series!]
+			dst		[series!]
+			slots	[integer!]
+	][
+		assert TYPE_OF(slot) = TYPE_OBJECT
+		obj: as red-object! slot
+		node: obj/ctx
+		ctx: TO_CTX(node)
+		src: as series! ctx/symbols/value
+		slots: (as-integer (src/tail - src/offset)) >> 4
+		
+		new: create 
+			slots
+			ctx/header and flag-series-stk <> 0
+			ctx/header and flag-self-mask  <> 0
+		
+		ctx: TO_CTX(new)
+		dst: as series! ctx/symbols/value
+		dst/tail: dst/offset + slots
+		sym: as red-word! dst/offset
+		
+		copy-memory
+			as byte-ptr! sym
+			as byte-ptr! src/offset
+			slots << 4
+
+		while [slots > 0][
+			sym/ctx: new
+			sym: sym + 1
+			slots: slots - 1
+		]
+		obj/ctx: new
+		new
+	]
 
 	create: func [
-		slots		[integer!]							;-- max number of words in the context
-		stack?		[logic!]							;-- TRUE: alloc values on stack, FALSE: alloc them from heap
-		self?		[logic!]
-		return:		[node!]
+		slots	[integer!]							;-- max number of words in the context
+		stack?	[logic!]							;-- TRUE: alloc values on stack, FALSE: alloc them from heap
+		self?	[logic!]
+		return:	[node!]
 		/local
-			cell 	[red-context!]
+			cell [red-context!]
+			slot [red-value!]
+			node [node!]
+			symbols [node!]
 	][
 		#if debug? = yes [if verbose > 0 [print-line "_context/create"]]
 		
 		if zero? slots [slots: 1]
-		node: alloc-cells 1
+		node: alloc-cells 2
 		cell: as red-context! alloc-tail as series! node/value
-		cell/header: TYPE_CONTEXT						;-- implicit reset of all header flags	
-		cell/symbols: alloc-series slots 16 0			;-- force offset at head of buffer
+		slot: alloc-tail as series! node/value			;-- allocate a slot for obj/func back-reference
+		slot/header: TYPE_UNSET
+		cell/header: TYPE_UNSET							;-- implicit reset of all header flags	
+		symbols: alloc-cells slots						;@@ create the node! on native stack, so it can be marked by GC
 		cell/self: node
-		
-		if self? [cell/header: cell/header or set-self-mask]
 
 		either stack? [
-			cell/header: TYPE_CONTEXT or flag-series-stk
 			cell/values: null							;-- will be set to stack frame dynamically
+			cell/header: TYPE_CONTEXT or flag-series-stk
 		][
-			cell/values: alloc-cells slots
+			cell/values: alloc-unset-cells slots
+			cell/header: TYPE_CONTEXT
 		]
+		cell/symbols: symbols
+
+		if self? [cell/header: cell/header or flag-self-mask]
 		node
 	]
 	
@@ -279,6 +428,7 @@ _context: context [
 			symbols	[node!]
 			ctx		[red-context!]
 			cell	[red-value!]
+			end		[red-value!]
 			slot	[red-word!]
 			s		[series!]
 			type	[integer!]
@@ -290,9 +440,10 @@ _context: context [
 		
 		s: GET_BUFFER(spec)
 		cell: s/offset
+		end: s/tail
 		i: 0
 		
-		while [cell < s/tail][
+		while [cell < end][
 			type: TYPE_OF(cell)
 			if any [									;TBD: use typeset/any-word?
 				type = TYPE_WORD
@@ -309,22 +460,13 @@ _context: context [
 			]
 			cell: cell + 1
 		]
+
+		unless stack? [
+			s: as series! ctx/values/value
+			s/tail: s/offset + i
+		]
+
 		new
-	]
-	
-	get-words: func [
-		/local
-			blk	[red-block!]
-	][
-		ctx: TO_CTX(global-ctx)
-		blk: as red-block! stack/push*
-		blk/header: TYPE_BLOCK
-		blk/head: 	0
-		blk/node: 	ctx/symbols 
-		
-		copy-cell 										;-- reposition cloned block at right place
-			as red-value! block/clone blk no
-			as red-value! blk
 	]
 	
 	bind-word: func [
@@ -334,7 +476,7 @@ _context: context [
 		/local
 			idx [integer!]
 	][
-		idx: find-word ctx word/symbol no
+		idx: find-word ctx word/symbol yes
 		if idx >= 0 [
 			word/ctx: ctx/self
 			word/index: idx
@@ -345,14 +487,16 @@ _context: context [
 	bind: func [
 		body	[red-block!]
 		ctx		[red-context!]
+		obj		[node!]									;-- required by SELF
 		self?	[logic!]
 		return: [red-block!]
 		/local
 			value [red-value!]
 			end	  [red-value!]
 			w	  [red-word!]
-			type  [integer!]
 	][
+		if cycles/find? body/node [return body]
+		cycles/push body/node
 		value: block/rs-head body
 		end:   block/rs-tail body
 
@@ -368,25 +512,21 @@ _context: context [
 						self?
 						TYPE_OF(value) = TYPE_WORD
 						w/symbol = words/self
-					][			
-						w/ctx: ctx/self					;-- make SELF refer to this context (half-bound)
+					][
+						w/ctx: obj						;-- make SELF refer to the original object
 						w/index: -1						;-- make it fail if resolved out of context
 					][
 						bind-word ctx w
 					]
 				]
-				TYPE_BLOCK 								;@@ replace with TYPE_ANY_BLOCK
-				TYPE_PAREN
-				TYPE_PATH
-				TYPE_LIT_PATH
-				TYPE_SET_PATH
-				TYPE_GET_PATH	[
-					bind as red-block! value ctx self?
+				TYPE_ANY_BLOCK	[
+					bind as red-block! value ctx obj self?
 				]
 				default [0]
 			]
 			value: value + 1
 		]
+		cycles/pop
 		body
 	]
 	
@@ -407,17 +547,22 @@ _context: context [
 	]
 	
 	collect-set-words: func [
-		ctx	 [red-context!]
-		spec [red-block!]
+		ctx	 	[red-context!]
+		spec 	[red-block!]
+		return: [logic!]
 		/local
 			cell [red-value!]
 			tail [red-value!]
-			word [red-word!]
+			base [red-value!]
 			s	 [series!]
 	][
 		s: GET_BUFFER(spec)
-		cell: s/offset
+		cell: s/offset + spec/head
 		tail: s/tail
+		assert cell <= tail
+		
+		s: as series! ctx/symbols/value
+		base: s/tail - s/offset
 
 		while [cell < tail][
 			if TYPE_OF(cell) = TYPE_SET_WORD [
@@ -425,6 +570,8 @@ _context: context [
 			]
 			cell: cell + 1
 		]
+		s: as series! ctx/symbols/value					;-- refresh s after possible expansion
+		s/tail - s/offset > base						;-- TRUE: new words added
 	]
 	
 	;-- Actions -- 
@@ -441,7 +588,7 @@ _context: context [
 			null			;to
 			null			;form
 			null			;mold
-			null			;get-path
+			null			;eval-path
 			null			;set-path
 			null			;compare
 			;-- Scalar actions --
@@ -474,9 +621,11 @@ _context: context [
 			null			;index?
 			null			;insert
 			null			;length?
+			null			;move
 			null			;next
 			null			;pick
 			null			;poke
+			null			;put
 			null			;remove
 			null			;reverse
 			null			;select

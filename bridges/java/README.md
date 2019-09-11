@@ -5,13 +5,13 @@ This is a prototype of a higher-level Red to Java bridge using JNI.
 
 A 32-bit JVM is required for this to work. 
 
-In order to compile the example hello.red script, follow these steps:
+In order to compile the example hello.red script, open a Rebol2 console and follow these steps:
 
 On Windows:
 
 1. Compile the hello.red script as a shared library:
 
-        >> do/args %red.r "-dlib -v 0 %red/bridges/java/hello.red -o %../red/bridges/java/hello"   
+        >> do/args %red.r "-dlib -o %bridges/java/hello %bridges/java/hello.red"   
 
 2. Compile and run the bridge.java app from console:
 
@@ -20,9 +20,9 @@ On Windows:
 
 On Unix:
 
-1. Compile the JNIdemo.reds script as a shared library:
+1. Compile the hello.red script as a shared library:
 
-        >> do/args %red.r "-dlib -v 0 %red/bridges/java/hello.red -o %../red/bridges/java/libhello"
+        >> do/args %red.r "-dlib -o %bridges/java/libhello %bridges/java/hello.red"
 
 2. Compile and run the bridge.java app from console:
 
@@ -31,7 +31,7 @@ On Unix:
 
 You should see an AWT window opening with a small message.
 
-_Note: On Mac OSX, using the -d32 option allows to load the 32-bit JNI library, but some exceptions are thrown on exit anyway._
+_Note: On macOS, using the -d32 option allows to load the 32-bit JNI library, but some exceptions are thrown on exit anyway._
 
 
 Red/Java bridge current API
